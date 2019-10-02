@@ -158,7 +158,7 @@
 
                 for (let columnNumber = 0; columnNumber < numOfRows; columnNumber++) {
                     const x = columnNumber * (squareSize + gapSize);
-                    const square = createFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
+                    const square = getAndCreateFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
                     enemySquares.push(square);
                 }
             }
@@ -176,12 +176,12 @@
         /* Deze functie maakt een object aan waarin coördinaten, de state, het schip en een aantal methoden zitten.
         De "changeAndDraw" methode tekent de square op het canvas. De "isClicked" methode kijkt of de coördinaten die als
         parameter zijn meegegeven binnen de square vallen. De "getColor" methode kijkt welke kleur het vakje moet hebben. */
-        function createFriendlyGridSquare(x, y, gridNumber) {
+        function getAndCreateFriendlyGridSquare(x, y, gridNumber) {
             const square = {
                 x: x,
                 state: "water",
                 y: y,
-                getColor: mySeaColors,
+                getColor: getMySeaColor,
                 id: gridNumber,
                 changeAndDraw: changeStateAndDraw,
                 isClicked: doCoordinatesOverlap
@@ -190,7 +190,7 @@
         }
 
         function insertEnemyGameMethods(gridNumber) {
-            enemySquares[gridNumber].getColor = enemySeaColors;
+            enemySquares[gridNumber].getColor = getEnemySeaColor;
             enemySquares[gridNumber].changeAndDraw = changeStateAndDraw;
             enemySquares[gridNumber].isClicked = doCoordinatesOverlap;
             return enemySquares[gridNumber];
@@ -276,7 +276,7 @@
         }
 
         /* Methode: In mijn zee zijn de boten oranje. */
-        function mySeaColors() {
+        function getMySeaColor() {
             const square = this;
 
             if (square.state === "water") {
@@ -291,7 +291,7 @@
         }
 
         /* Methode: In zijn zee zijn de boten verstopt (dezelfde kleur als de zee). */
-        function enemySeaColors() {
+        function getEnemySeaColor() {
             const square = this;
 
             if (square.state === "water") {
@@ -391,7 +391,7 @@
                 for (let columnNumber = 0; columnNumber < numOfRows; columnNumber++) {
                     const x = columnNumber * (squareSize + gapSize);
 
-                    const square = createFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
+                    const square = getAndCreateFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
                     square.changeAndDraw(myContext, "water");
                     mySquares.push(square);
                 }
@@ -439,7 +439,7 @@
             }
         }
 
-        // Functie om te checken of de hele boot  is gezonken.
+        // Functie om te checken of de hele boot is gezonken.
         function checkIfSunk(squares, shipType) {
             let allHit = true;
             for (let i = 0; i < squares.length; i++) {
@@ -449,7 +449,7 @@
             } return allHit;
         }
 
-        /* Functie kijkt of de coordinaten waar geklikt is overeen komen met een plek op het grid.
+        /* Functie kijkt of de coördinaten waar geklikt is overeen komen met een plek op het grid.
         Als dat zo is, beslist de functie wat er moet gebeuren. */
         function playHumanTurn(mouseX, mouseY) {
             for (let i = 0; i < enemySquares.length; i++) {
@@ -459,7 +459,7 @@
                         playComputerTurn();
                     } else if (enemySquares[i].state === "ship") {
                         enemySquares[i].changeAndDraw(enemyContext, "hit");
-
+                        // Check of de hele boot al gezonken is. Zo ja, komt deze in de lijst met gezonken schepen te staan.
                         const sunk = checkIfSunk(enemySquares, enemySquares[i].shipType);
                         if (sunk) {
                             document.getElementById("yourSunkenShips").innerHTML += "<li>" + enemySquares[i].shipType + "</li>";
@@ -481,24 +481,27 @@
         // De computer gooit een bom in het wilde weg ergens in jouw zee.
         function playComputerTurn(wait = true) {
             waitForYourTurnInstruction();
+
+            // Dit is voor de delay bij de computer turn, om het iets 'menselijker' te laten lijken.
             let waitTime = 500;
             if (!wait) {
                 waitTime = 0;
             }
 
             setTimeout(function() {
-                let target = Math.floor(Math.random() * numOfRows * numOfRows); // numOfRows = 12
+                let target = Math.floor(Math.random() * numOfRows * numOfRows);
                 const possibleHitLocation = getPossibleHitLocation();
                 if (possibleHitLocation) {
                     target = possibleHitLocation;
                 }
+
                 if (mySquares[target].state === "water") {
                     mySquares[target].changeAndDraw(myContext, "miss");
                 } else if (mySquares[target].state === "ship") {
                     mySquares[target].changeAndDraw(myContext, "hit");
-                    saveHitArea(target);
-                    const sunk = checkIfSunk(mySquares, mySquares[target].shipType);
+                    saveHitSquare(target);
 
+                    const sunk = checkIfSunk(mySquares, mySquares[target].shipType);
                     if (sunk) {
                         document.getElementById("enemysSunkenShips").innerHTML += "<li>" + mySquares[target].shipType + "</li>";
                     }
@@ -509,27 +512,24 @@
                 }
                 throwBombInstruction();
                 checkIfWinner(mySquares);
-                // if (!winner) {
-                //     playComputerTurn();
-                // }
             }, waitTime);
         }
 
-        let hitArea = null;
-        function saveHitArea(location) {
-            hitArea = location;
+        let hitSquare = null;
+        function saveHitSquare(location) {
+            hitSquare = location;
         }
 
         function getPossibleHitLocation() {
-            if (hitArea === null) {
+            if (hitSquare === null) {
                 return null;
             }
 
-            const upLocation = hitArea - 12;
-            const downLocation = hitArea + 12;
-            const leftLocation = hitArea - 1;
-            const rightLocation = hitArea + 1;
-            const rowHitArea = Math.floor(hitArea / 12);
+            const upLocation = hitSquare - 12;
+            const downLocation = hitSquare + 12;
+            const leftLocation = hitSquare - 1;
+            const rightLocation = hitSquare + 1;
+            const rowHitArea = Math.floor(hitSquare / 12);
             const rowLeftLocation = Math.floor(leftLocation / 12);
             const rowRightLocation = Math.floor(rightLocation / 12);
 
@@ -538,7 +538,7 @@
             if (leftLocation >= 0 && (rowHitArea === rowLeftLocation) && (mySquares[leftLocation].state === "water" || mySquares[leftLocation].state === "ship")) return leftLocation;
             if (rightLocation <= 143 && (rowHitArea === rowRightLocation) && (mySquares[rightLocation].state === "water" || mySquares[rightLocation].state === "ship")) return rightLocation;
 
-            hitArea = null;
+            hitSquare = null;
             return null;
         }
 
@@ -597,7 +597,7 @@
             document.getElementById("instruction-text").innerHTML = "Wait for your enemy"
         }
 
-        // Functie om de knop om de oriëntatie te veranderen te verwijderen wanneer alle 5 de boten zijn geplaatst.
+        // Functie om de knop om de oriëntatie te veranderen te verwijderen wanneer alle 5 de boten zijn geplaatst. Van het internet.
         function removeOrientationButton() {
             const elem = document.getElementById("orientation-button");
             elem.parentNode.removeChild(elem);
