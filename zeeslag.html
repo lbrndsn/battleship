@@ -16,7 +16,7 @@
             flex-wrap: wrap;
             justify-content: center;
             margin: 0 45px 45px 45px;
-            /*overflow: hidden;*/
+            overflow: hidden;
             background-color: #333333;
             font-family: 'Big Shoulders Text', cursive;
             text-transform: uppercase;
@@ -277,27 +277,31 @@
 
         /* Methode: In mijn zee zijn de boten oranje. */
         function mySeaColors() {
-            if (this.state === "water") {
+            const square = this;
+
+            if (square.state === "water") {
                 return "#222222";
-            } else if (this.state === "miss") {
+            } else if (square.state === "miss") {
                 return "#666666";
-            } else if (this.state === "hit") {
+            } else if (square.state === "hit") {
                 return "#1cd37b";
-            } else if (this.state === "ship") {
+            } else if (square.state === "ship") {
                 return "#cb7633";
             }
         }
 
         /* Methode: In zijn zee zijn de boten verstopt (dezelfde kleur als de zee). */
         function enemySeaColors() {
-            if (this.state === "water") {
+            const square = this;
+
+            if (square.state === "water") {
                 return "#222222";
-            } else if (this.state === "miss") {
+            } else if (square.state === "miss") {
                 return "#666666";
-            } else if (this.state === "hit") {
+            } else if (square.state === "hit") {
                 return "#1cd37b";
-            } else if (this.state === "ship") {
-                return "blue";
+            } else if (square.state === "ship") {
+                return "#222222";
             }
         }
 
