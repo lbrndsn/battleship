@@ -173,8 +173,8 @@
             return optimalSquareSize;
         }
 
-        /* Deze functie maakt een object aan waarin coordinaten, de state, het schip en een aantal methoden zitten.
-        De "draw" methode tekent de square op het canvas. De "isClicked" methode kijkt of de coordinaten die als
+        /* Deze functie maakt een object aan waarin coördinaten, de state, het schip en een aantal methoden zitten.
+        De "changeAndDraw" methode tekent de square op het canvas. De "isClicked" methode kijkt of de coördinaten die als
         parameter zijn meegegeven binnen de square vallen. De "getColor" methode kijkt welke kleur het vakje moet hebben. */
         function createFriendlyGridSquare(x, y, gridNumber) {
             const square = {
@@ -196,23 +196,26 @@
             return enemySquares[gridNumber];
         }
 
-        // Methode: Tekent een vierkantje  op bepaalde coordinaten in een bepaald canvas.
+        // Methode: Tekent een vierkantje op bepaalde coördinaten in een bepaald canvas.
         function changeStateAndDraw(context, state) {
+            // Om duidelijker te maken waar "this" naar refereert.
+            const square = this;
+
             if (state !== undefined) {
-                this.state = state;
+                square.state = state;
             }
 
             context.beginPath();
-            context.fillStyle = this.getColor();
-            context.rect(this.x, this.y, squareSize, squareSize);
+            context.fillStyle = square.getColor();
+            context.rect(square.x, square.y, squareSize, squareSize);
             context.fill();
 
             if (state === "hit") {
-                drawStar(this.x + 20, this.y + 20, 8, 10, 3.33, context);
+                drawStar(square.x + 20, square.y + 20, 8, 10, 3.33, context);
             }
 
             if (state === "miss") {
-                drawX(this.x + 20, this.y + 20, context);
+                drawX(square.x + 20, square.y + 20, context);
             }
         }
 
@@ -465,7 +468,6 @@
                         setTimeout(function() {
                             throwBombInstruction();
                         }, 2000);
-                        // TODO feedback over click.
                     }
                 }
             }
@@ -500,7 +502,6 @@
                     playComputerTurn(false);
                     return;
                     // Wanneer er twee keer een bom op dezelfde plek gegooid wordt, blijft de beurt staan.
-                    // TODO feedback over click.
                 }
                 throwBombInstruction();
                 checkIfWinner(mySquares);
