@@ -179,8 +179,8 @@
         function getAndCreateFriendlyGridSquare(x, y, gridNumber) {
             const square = {
                 x: x,
-                state: "water",
                 y: y,
+                state: "water",
                 getColor: getMySeaColor,
                 id: gridNumber,
                 changeAndDraw: changeStateAndDraw,
@@ -220,10 +220,11 @@
         }
 
         // Methode: Als de coordinaten in de parameters overlappen met de coordinaten in het object is er overlap.
-        // TODO Herschrijven om simpeler te maken/beter leesbaar.
         function doCoordinatesOverlap(x, y) {
             let overlap = false;
-            if (x >= this.x && x <= this.x + squareSize && y >= this.y && y <= this.y + squareSize) {
+            const square = this;
+
+            if (x >= square.x && x <= square.x + squareSize && y >= square.y && y <= square.y + squareSize) {
                 overlap = true;
             }
             return overlap;
@@ -301,7 +302,7 @@
             } else if (square.state === "hit") {
                 return "#1cd37b";
             } else if (square.state === "ship") {
-                return "#222222";
+                return "green";
             }
         }
 
@@ -642,6 +643,8 @@
                     winner = "you";
                     confetti.start(5000);
                     document.getElementById("title").innerHTML = "You win";
+                    document.getElementById("instruction-text").innerHTML = "It's over!";
+
                     fadeOutEffect();
                     setTimeout(function () {
                         location.reload()
@@ -649,6 +652,8 @@
                 } else if (squares === mySquares) {
                     winner = "enemy";
                     document.getElementById("title").innerHTML = "Computer wins";
+                    document.getElementById("instruction-text").innerHTML = "It's over!";
+
                     fadeOutEffect();
                     setTimeout(function () {
                         location.reload()
