@@ -114,6 +114,7 @@
     <script src="https://cdn.jsdelivr.net/gh/mathusummut/confetti.js/confetti.min.js"></script> <!-- Voor de confetti na afloop van het spel -->
     <script>
         const enemySquares = [];
+        const mySquares = [];
 
         const myCanvas = document.getElementById("mySea");
         const myContext = myCanvas.getContext("2d");
@@ -121,7 +122,6 @@
         const enemyCanvas = document.getElementById("enemySea");
         const enemyContext = enemyCanvas.getContext("2d");
 
-        const mySquares = [];
         const gapSize = 3;
         const numOfRows = 12;
         const squareSize = getSquareSize();
@@ -158,7 +158,7 @@
 
                 for (let columnNumber = 0; columnNumber < numOfRows; columnNumber++) {
                     const x = columnNumber * (squareSize + gapSize);
-                    const square = getAndCreateFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
+                    const square = createAndGetGridSquare(x, y, rowNumber * numOfRows + columnNumber);
                     enemySquares.push(square);
                 }
             }
@@ -173,10 +173,13 @@
             return optimalSquareSize;
         }
 
-        /* Deze functie maakt een object aan waarin coördinaten, de state, het schip en een aantal methoden zitten.
-        De "changeAndDraw" methode tekent de square op het canvas. De "isClicked" methode kijkt of de coördinaten die als
-        parameter zijn meegegeven binnen de square vallen. De "getColor" methode kijkt welke kleur het vakje moet hebben. */
-        function getAndCreateFriendlyGridSquare(x, y, gridNumber) {
+        /*
+        * Deze functie maakt een object aan waarin coördinaten, de state, het schip en een aantal methoden zitten.
+        * De "changeAndDraw" methode tekent de square op het canvas. De "isClicked" methode kijkt of de coördinaten die
+        * als parameter zijn meegegeven binnen de square vallen. De "getColor" methode kijkt welke kleur het vakje moet
+        * hebben.
+        */
+        function createAndGetGridSquare(x, y, gridNumber) {
             const square = {
                 x: x,
                 y: y,
@@ -306,10 +309,12 @@
             }
         }
 
-        /* De "e" parameter verwijst naar het click event waardoor deze functie (indirect) getriggered wordt. Deze "e"
-        heeft een clientX en clientY veld waar de coordinaten van de klik in staan. Positie van de muis != positie van
-        de elementen van het canvas. Daarvoor moeten we eerst de beginpunten van het canvas opvragen. Daar is de
-        canvas.getBoundingClientRect() methode voor. Als je deze functie niet snapt is dat niet erg. */
+        /*
+        * De "e" parameter verwijst naar het click event waardoor deze functie (indirect) getriggered wordt. Deze "e"
+        * heeft een clientX en clientY veld waar de coordinaten van de klik in staan. Positie van de muis != positie van
+        * de elementen van het canvas. Daarvoor moeten we eerst de beginpunten van het canvas opvragen. Daar is de
+        * canvas.getBoundingClientRect() methode voor. Als je deze functie niet snapt is dat niet erg.
+        */
         function getMousePosRelativeToCanvas(e) {
             const rect = e.target.getBoundingClientRect();
             return {
@@ -318,7 +323,7 @@
             };
         }
 
-        /* Functie controleert of een boot geplaatst mag worden op een vierkantje. */
+        // Functie controleert of een boot geplaatst mag worden op een vierkantje.
         function isValidPosition(firstSquareIndex, currentShipSize, squares) {
             let isValid = true;
             if (shipOrientation === "horizontal") {
@@ -353,8 +358,10 @@
             return isValid;
         }
 
-        /* Tekent een boot op de plek waarop geklikt is, maar voert wel eerst wat controles uit. De currentShipIndex
-        wordt bij een succesvolle plaatsing opgehoogd, waardoor de volgende keer een nieuwe boot getekend wordt. */
+        /*
+        * Tekent een boot op de plek waarop geklikt is, maar voert wel eerst wat controles uit. De currentShipIndex
+        * wordt bij een succesvolle plaatsing opgehoogd, waardoor de volgende keer een nieuwe boot getekend wordt.
+        */
         function placeBoat(firstSquareIndex) {
             const currentShip = ships[currentShipIndex];
 
@@ -392,7 +399,7 @@
                 for (let columnNumber = 0; columnNumber < numOfRows; columnNumber++) {
                     const x = columnNumber * (squareSize + gapSize);
 
-                    const square = getAndCreateFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
+                    const square = createAndGetGridSquare(x, y, rowNumber * numOfRows + columnNumber);
                     square.changeAndDraw(myContext, "water");
                     mySquares.push(square);
                 }
@@ -421,18 +428,18 @@
                 if (enemyShipOrientation === 0) {
                     shipOrientation = "horizontal";
                     if (isValidPosition(firstSquareIndex, currentShip.shipSize, enemySquares)) {
-                        for (let j = firstSquareIndex; j < firstSquareIndex + currentShip.shipSize; j++) {
-                            enemySquares[j].changeAndDraw(enemyContext, "ship");
-                            enemySquares[j].shipType = currentShip.shipType;
+                        for (let i = firstSquareIndex; i < firstSquareIndex + currentShip.shipSize; i++) {
+                            enemySquares[i].changeAndDraw(enemyContext, "ship");
+                            enemySquares[i].shipType = currentShip.shipType;
                         }
                         shipsPlaced++;
                     }
                 } else if (enemyShipOrientation === 1) {
                     shipOrientation = "vertical";
                     if (isValidPosition(firstSquareIndex, currentShip.shipSize, enemySquares)) {
-                        for (let j = firstSquareIndex; j < firstSquareIndex + currentShip.shipSize * numOfRows; j+= numOfRows) {
-                            enemySquares[j].changeAndDraw(enemyContext, "ship");
-                            enemySquares[j].shipType = currentShip.shipType;
+                        for (let i = firstSquareIndex; i < firstSquareIndex + currentShip.shipSize * numOfRows; i+= numOfRows) {
+                            enemySquares[i].changeAndDraw(enemyContext, "ship");
+                            enemySquares[i].shipType = currentShip.shipType;
                         }
                         shipsPlaced++;
                     }
@@ -447,11 +454,14 @@
                 if (squares[i].shipType === shipType && squares[i].state !== "hit") {
                     allHit = false;
                 }
-            } return allHit;
+            }
+            return allHit;
         }
 
-        /* Functie kijkt of de coördinaten waar geklikt is overeen komen met een plek op het grid.
-        Als dat zo is, beslist de functie wat er moet gebeuren. */
+        /*
+        * Functie kijkt of de coördinaten waar geklikt is overeen komen met een plek op het grid. Als dat zo is, beslist
+        * de functie wat er moet gebeuren.
+        */
         function playHumanTurn(mouseX, mouseY) {
             for (let i = 0; i < enemySquares.length; i++) {
                 if (enemySquares[i].isClicked(mouseX, mouseY)) {
@@ -539,14 +549,20 @@
             if (leftLocation >= 0 && (rowHitArea === rowLeftLocation) && (mySquares[leftLocation].state === "water" || mySquares[leftLocation].state === "ship")) return leftLocation;
             if (rightLocation <= 143 && (rowHitArea === rowRightLocation) && (mySquares[rightLocation].state === "water" || mySquares[rightLocation].state === "ship")) return rightLocation;
 
+            /*
+            * hitSquare wordt hier weer op null gezet om ervoor te zorgen dat de enemy weer random gaat klikken in
+            * plaats van om de hitSquare heen.
+            */
             hitSquare = null;
             return null;
         }
 
-        /* De "clickEvent" parameter verwijst naar het "click event" waardoor deze functie getriggered wordt. Dit
-        "event" is een object waar allerlei informatie over de click in verstopt zit. De functie probeert de huidige boot
-        te plaatsen. Als er geen boot meer te plaatsen is, wordt de vijandige zee getekend, en worden de functies die in
-        de onclick zitten vervangen door functies die nodig zijn voor het echte spel. */
+        /*
+        * De "clickEvent" parameter verwijst naar het "click event" waardoor deze functie getriggered wordt. Dit
+        * "event" is een object waar allerlei informatie over de click in verstopt zit. De functie probeert de huidige
+        * boot te plaatsen. Als er geen boot meer te plaatsen is, wordt de vijandige zee getekend, en worden de functies
+        * die in de onclick zitten vervangen door functies die nodig zijn voor het echte spel.
+        */
         function gameSetupRound(clickEvent) {
             mouseX = parseInt(getMousePosRelativeToCanvas(clickEvent).x);
             mouseY = parseInt(getMousePosRelativeToCanvas(clickEvent).y);
@@ -570,8 +586,10 @@
             }
         }
 
-        /* Dit is het echte spel, de functie wordt aangeroepen door een click event. De "clickEvent" parameter is het
-        click event, daarin zit informatie over de coordinaten waar geklikt is. */
+        /*
+        * Dit is het echte spel, de functie wordt aangeroepen door een click event. De "clickEvent" parameter is het
+        * click event, daarin zit informatie over de coordinaten waar geklikt is.
+        */
         function playRound(clickEvent) {
             mouseX = parseInt(getMousePosRelativeToCanvas(clickEvent).x);
             mouseY = parseInt(getMousePosRelativeToCanvas(clickEvent).y);
@@ -598,7 +616,7 @@
             document.getElementById("instruction-text").innerHTML = "Wait for your enemy"
         }
 
-        // Functie om de knop om de oriëntatie te veranderen te verwijderen wanneer alle 5 de boten zijn geplaatst. Van het internet.
+        // Functie om de knop om de oriëntatie te veranderen te verwijderen wanneer alle 5 de boten zijn geplaatst. Van internet.
         function removeOrientationButton() {
             const elem = document.getElementById("orientation-button");
             elem.parentNode.removeChild(elem);
