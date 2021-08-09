@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Battleship</title>
+
+    <link href="https://fonts.googleapis.com/css?family=Big+Shoulders+Text:300,400,700&display=swap" rel="stylesheet">
+
+    <style>
+        *:focus {
+            outline: none;
+        }
+
+        body {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 0 45px 45px 45px;
+            overflow: hidden;
+            background-color: #333333;
+            font-family: 'Big Shoulders Text', cursive;
+            text-transform: uppercase;
+            color: #333333;
+        }
+
+        #fullscreen { /* Dit is voor de fade-out na afloop van het spel */
+            background-color: #000000;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            visibility: hidden;
+            opacity: 0;
+            transition: all 1s ease-in-out;
+        }
+
+        #title {
+            text-align: center;
+            color: #FFFFFF;
+            font-size: 9em;
+            letter-spacing: 30px;
+            margin-bottom: -5px;
+        }
+
+        #instruction {
+            width: 1288px;
+            padding: 15px;
+            background-color: #1a1a1a;
+            color: #999;
+            text-align: center;
+        }
+
+        #instruction-text {
+            font-weight: 700;
+            font-size: 2em;
+        }
+
+        #orientation-button {
+            background-color: #222222;
+            border: none;
+            color: #999999;
+            text-transform: uppercase;
+            padding: 5px 10px;
+            margin-top: 5px;
+        }
+
+        #sunkenships-container {
+            height: 497px;
+            background: /* Dit is van een pattern library geplukt */
+                    radial-gradient(black 15%, transparent 16%) 0 0,
+                    radial-gradient(black 15%, transparent 16%) 8px 8px,
+                    radial-gradient(rgba(255, 255, 255, .1) 15%, transparent 20%) 0 1px,
+                    radial-gradient(rgba(255, 255, 255, .1) 15%, transparent 20%) 8px 9px;
+            background-color: #282828;
+            background-size: 16px 16px;
+            color: #ffffff;
+            margin: 0 10px 0 10px;
+            text-align: center;
+        }
+
+        #yourSunkenShips {
+            height: 40%;
+            padding-top: 20px;
+        }
+
+        li {
+            list-style: none;
+        }
+    </style>
+
+</head>
+<body>
+    <div id="fullscreen"></div> <!-- Dit is voor de fade-out na afloop van het spel -->
+    <div id="title">Battleship</div>
+    <div id="instruction">
+        <div id="instruction-text"></div>
+        <button id="orientation-button">Change orientation to vertical</button>
+    </div>
+
+    <canvas id="mySea" width=500 height=500></canvas>
+
+    <div id="sunkenships-container" style="width: 300px">
+        <div id="yourSunkenShips">
+            <h2>Ships you've sunk</h2>
+        </div>
+        <div id="enemysSunkenShips">
+            <h2>Ships your enemy's sunk</h2>
+        </div>
+    </div>
+
+    <canvas id="enemySea" width=500 height=500></canvas>
+
+    <script src="https://cdn.jsdelivr.net/gh/mathusummut/confetti.js/confetti.min.js"></script> <!-- Voor de confetti na afloop van het spel -->
+    <script>
+        const enemySquares = [];
+
+        const myCanvas = document.getElementById("mySea");
+        const myContext = myCanvas.getContext("2d");
+        
+        const enemyCanvas = document.getElementById("enemySea");
+        const enemyContext = enemyCanvas.getContext("2d");
+
+        const mySquares = [];
+        const gapSize = 3;
+        const numOfRows = 12;
+        const squareSize = getSquareSize();
+
+        const ships = [
+            {
+                shipType: "carrier",
+                shipSize: 5
+            },
+            {
+                shipType: "battleship",
+                shipSize: 4
+            },
+            {
+                shipType: "cruiser",
+                shipSize: 3
+            },
+            {
+                shipType: "submarine",
+                shipSize: 3
+            },
+            {
+                shipType: "destroyer",
+                shipSize: 2
+            }
+        ];
+
+        let currentShipIndex = 0;
+        let shipOrientation = "horizontal";
+
+        function createEnemySquares() {
+            for (let rowNumber = 0; rowNumber < numOfRows; rowNumber++) {
+                const y = rowNumber * (squareSize + gapSize);
+
+                for (let columnNumber = 0; columnNumber < numOfRows; columnNumber++) {
+                    const x = columnNumber * (squareSize + gapSize);
+                    const square = getAndCreateFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
+                    enemySquares.push(square);
+                }
+            }
+        }
+
+        createEnemySquares();
+
+        // Deze functie berekent hoe groot de vierkantjes van het grid moeten zijn om in het canvas te passen.
+        function getSquareSize() {
+            const canvasWidth = myCanvas.width;
+            const optimalSquareSize = (canvasWidth / numOfRows) - gapSize;
+            return optimalSquareSize;
+        }
+
+        /* Deze functie maakt een object aan waarin coördinaten, de state, het schip en een aantal methoden zitten.
+        De "changeAndDraw" methode tekent de square op het canvas. De "isClicked" methode kijkt of de coördinaten die als
+        parameter zijn meegegeven binnen de square vallen. De "getColor" methode kijkt welke kleur het vakje moet hebben. */
+        function getAndCreateFriendlyGridSquare(x, y, gridNumber) {
+            const square = {
+                x: x,
+                y: y,
+                state: "water",
+                getColor: getMySeaColor,
+                id: gridNumber,
+                changeAndDraw: changeStateAndDraw,
+                isClicked: doCoordinatesOverlap
+            };
+            return square;
+        }
+
+        function insertEnemyGameMethods(gridNumber) {
+            enemySquares[gridNumber].getColor = getEnemySeaColor;
+            enemySquares[gridNumber].changeAndDraw = changeStateAndDraw;
+            enemySquares[gridNumber].isClicked = doCoordinatesOverlap;
+            return enemySquares[gridNumber];
+        }
+
+        // Methode: Tekent een vierkantje op bepaalde coördinaten in een bepaald canvas.
+        function changeStateAndDraw(context, state) {
+            // Om duidelijker te maken waar "this" naar refereert.
+            const square = this;
+
+            if (state !== undefined) {
+                square.state = state;
+            }
+
+            context.beginPath();
+            context.fillStyle = square.getColor();
+            context.rect(square.x, square.y, squareSize, squareSize);
+            context.fill();
+
+            if (state === "hit") {
+                drawStar(square.x + 20, square.y + 20, 8, 10, 3.33, context);
+            }
+
+            if (state === "miss") {
+                drawX(square.x + 20, square.y + 20, context);
+            }
+        }
+
+        // Methode: Als de coordinaten in de parameters overlappen met de coordinaten in het object is er overlap.
+        function doCoordinatesOverlap(x, y) {
+            let overlap = false;
+            const square = this;
+
+            if (x >= square.x && x <= square.x + squareSize && y >= square.y && y <= square.y + squareSize) {
+                overlap = true;
+            }
+            return overlap;
+        }
+
+        // Twee draw functies van het internet gehaald en zelf aangepast totdat het werkt hoe ik wil.
+        function drawStar(cx, cy, spikes, outerRadius, innerRadius, context) {
+            let rot = Math.PI / 2 * 3;
+            let x = cx;
+            let y = cy;
+            let step = Math.PI / spikes;
+
+            context.strokeSyle = "#000";
+            context.beginPath();
+            context.moveTo(cx, cy - outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                x = cx + Math.cos(rot) * outerRadius;
+                y = cy + Math.sin(rot) * outerRadius;
+                context.lineTo(x, y);
+                rot += step;
+
+                x = cx + Math.cos(rot) * innerRadius;
+                y = cy + Math.sin(rot) * innerRadius;
+                context.lineTo(x, y);
+                rot += step;
+            }
+
+            context.lineTo(cx, cy - outerRadius);
+            context.closePath();
+            context.lineWidth = 2;
+            context.strokeStyle = '#999999';
+            context.stroke();
+            context.fillStyle = '#16a661';
+            context.fill();
+        }
+
+        function drawX(x, y, context) {
+            context.beginPath();
+            context.strokeStyle = '#000000';
+            context.lineWidth = 1;
+
+            context.moveTo(x - 10, y - 10);
+            context.lineTo(x + 10, y + 10);
+            context.stroke();
+
+            context.moveTo(x + 10, y - 10);
+            context.lineTo(x - 10, y + 10);
+
+            context.stroke();
+        }
+
+        /* Methode: In mijn zee zijn de boten oranje. */
+        function getMySeaColor() {
+            const square = this;
+
+            if (square.state === "water") {
+                return "#222222";
+            } else if (square.state === "miss") {
+                return "#666666";
+            } else if (square.state === "hit") {
+                return "#1cd37b";
+            } else if (square.state === "ship") {
+                return "#cb7633";
+            }
+        }
+
+        /* Methode: In zijn zee zijn de boten verstopt (dezelfde kleur als de zee). */
+        function getEnemySeaColor() {
+            const square = this;
+
+            if (square.state === "water") {
+                return "#222222";
+            } else if (square.state === "miss") {
+                return "#666666";
+            } else if (square.state === "hit") {
+                return "#1cd37b";
+            } else if (square.state === "ship") {
+                return "#222222";
+            }
+        }
+
+        /* De "e" parameter verwijst naar het click event waardoor deze functie (indirect) getriggered wordt. Deze "e"
+        heeft een clientX en clientY veld waar de coordinaten van de klik in staan. Positie van de muis != positie van
+        de elementen van het canvas. Daarvoor moeten we eerst de beginpunten van het canvas opvragen. Daar is de
+        canvas.getBoundingClientRect() methode voor. Als je deze functie niet snapt is dat niet erg. */
+        function getMousePosRelativeToCanvas(e) {
+            const rect = e.target.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        /* Functie controleert of een boot geplaatst mag worden op een vierkantje. */
+        function isValidPosition(firstSquareIndex, currentShipSize, squares) {
+            let isValid = true;
+            if (shipOrientation === "horizontal") {
+                // Gaat niet over rand heen, % is modulo operator die naar de "restwaarde" van een deling kijkt.
+                const columnNumber = firstSquareIndex % numOfRows;
+                const availablePositions = numOfRows - columnNumber;
+
+                if (availablePositions < currentShipSize) {
+                    isValid = false;
+                }
+                // Gaat niet over ander schip heen
+                for (let i = firstSquareIndex; i < firstSquareIndex + currentShipSize; i++) {
+                    if (squares[i] !== undefined && squares[i].state === "ship") {
+                        isValid = false;
+                    }
+                }
+            } else if (shipOrientation === "vertical") {
+                // Gaat niet over rand heen, % is modulo operator die naar de "restwaarde" van een deling kijkt.
+                const rowNumber = Math.floor(firstSquareIndex / numOfRows);
+                const availablePositions = numOfRows - rowNumber;
+
+                if (availablePositions < currentShipSize) {
+                    isValid = false;
+                }
+                // Gaat niet over ander schip heen
+                for (let i = firstSquareIndex; i < firstSquareIndex + currentShipSize * numOfRows; i += numOfRows) {
+                    if (squares[i] !== undefined && squares[i].state === "ship") {
+                        isValid = false;
+                    }
+                }
+            }
+            return isValid;
+        }
+
+        /* Tekent een boot op de plek waarop geklikt is, maar voert wel eerst wat controles uit. De currentShipIndex
+        wordt bij een succesvolle plaatsing opgehoogd, waardoor de volgende keer een nieuwe boot getekend wordt. */
+        function placeBoat(firstSquareIndex) {
+            const currentShip = ships[currentShipIndex];
+
+            if (shipOrientation === "horizontal") {
+                if (isValidPosition(firstSquareIndex, currentShip.shipSize, mySquares, shipOrientation)) {
+                    for (let i = firstSquareIndex; i < firstSquareIndex + currentShip.shipSize; i++) {
+                        mySquares[i].changeAndDraw(myContext, "ship");
+                        mySquares[i].shipType = currentShip.shipType;
+                    }
+                    currentShipIndex += 1;
+                }
+            }
+
+            if (shipOrientation === "vertical") {
+                if (isValidPosition(firstSquareIndex, currentShip.shipSize, mySquares, shipOrientation)) {
+                    for (let i = firstSquareIndex; i < firstSquareIndex + currentShip.shipSize * numOfRows; i += numOfRows) {
+                        mySquares[i].changeAndDraw(myContext, "ship");
+                        mySquares[i].shipType = currentShip.shipType;
+                    }
+                    currentShipIndex += 1;
+                }
+            }
+
+            // Hier wordt de knop om de oriëntatie aan te passen verwijderd wanneer alle 5 de boten zijn geplaatst.
+            if (currentShipIndex === 5) {
+                removeOrientationButton();
+            }
+        }
+
+        // Tekent het canvas met onze zee, waar we vervolgens boten in kunnen plaatsen.
+        function drawMySea() {
+            for (let rowNumber = 0; rowNumber < numOfRows; rowNumber++) {
+                const y = rowNumber * (squareSize + gapSize);
+
+                for (let columnNumber = 0; columnNumber < numOfRows; columnNumber++) {
+                    const x = columnNumber * (squareSize + gapSize);
+
+                    const square = getAndCreateFriendlyGridSquare(x, y, rowNumber * numOfRows + columnNumber);
+                    square.changeAndDraw(myContext, "water");
+                    mySquares.push(square);
+                }
+            }
+        }
+
+        // Tekent het canvas van de vijand, zijn boten zijn onzichtbaar.
+        function drawEnemySea() {
+            for (let rowNumber = 0; rowNumber < numOfRows; rowNumber++) {
+                for (let columnNumber = 0; columnNumber < numOfRows; columnNumber++) {
+                    const square = insertEnemyGameMethods(rowNumber * numOfRows + columnNumber);
+                    square.changeAndDraw(enemyContext, undefined) // Undefined want de boten zitten al in het object, we willen ze niet overschrijven.
+                }
+            }
+        }
+
+        function placeEnemyShips() {
+            let shipsPlaced = 0;
+
+            while (shipsPlaced < ships.length) {
+                const currentShip = ships[shipsPlaced];
+
+                const firstSquareIndex = Math.floor(Math.random() * numOfRows * numOfRows);
+                const enemyShipOrientation = Math.round(Math.random());
+
+                if (enemyShipOrientation === 0) {
+                    shipOrientation = "horizontal";
+                    if (isValidPosition(firstSquareIndex, currentShip.shipSize, enemySquares)) {
+                        for (let j = firstSquareIndex; j < firstSquareIndex + currentShip.shipSize; j++) {
+                            enemySquares[j].changeAndDraw(enemyContext, "ship");
+                            enemySquares[j].shipType = currentShip.shipType;
+                        }
+                        shipsPlaced++;
+                    }
+                } else if (enemyShipOrientation === 1) {
+                    shipOrientation = "vertical";
+                    if (isValidPosition(firstSquareIndex, currentShip.shipSize, enemySquares)) {
+                        for (let j = firstSquareIndex; j < firstSquareIndex + currentShip.shipSize * numOfRows; j+= numOfRows) {
+                            enemySquares[j].changeAndDraw(enemyContext, "ship");
+                            enemySquares[j].shipType = currentShip.shipType;
+                        }
+                        shipsPlaced++;
+                    }
+                }
+            }
+        }
+
+        // Functie om te checken of de hele boot is gezonken.
+        function checkIfSunk(squares, shipType) {
+            let allHit = true;
+            for (let i = 0; i < squares.length; i++) {
+                if (squares[i].shipType === shipType && squares[i].state !== "hit") {
+                    allHit = false;
+                }
+            } return allHit;
+        }
+
+        /* Functie kijkt of de coördinaten waar geklikt is overeen komen met een plek op het grid.
+        Als dat zo is, beslist de functie wat er moet gebeuren. */
+        function playHumanTurn(mouseX, mouseY) {
+            for (let i = 0; i < enemySquares.length; i++) {
+                if (enemySquares[i].isClicked(mouseX, mouseY)) {
+                    if (enemySquares[i].state === "water") {
+                        enemySquares[i].changeAndDraw(enemyContext, "miss");
+                        playComputerTurn();
+                    } else if (enemySquares[i].state === "ship") {
+                        enemySquares[i].changeAndDraw(enemyContext, "hit");
+                        // Check of de hele boot al gezonken is. Zo ja, komt deze in de lijst met gezonken schepen te staan.
+                        const sunk = checkIfSunk(enemySquares, enemySquares[i].shipType);
+                        if (sunk) {
+                            document.getElementById("yourSunkenShips").innerHTML += "<li>" + enemySquares[i].shipType + "</li>";
+                        }
+
+                        playComputerTurn();
+                    } else if (enemySquares[i].state === "hit" || enemySquares[i].state === "miss") {
+                        // Wanneer er twee keer een bom op dezelfde plek gegooid wordt, blijft de beurt staan.
+                        document.getElementById("instruction-text").innerHTML = "A bomb has already been thrown here";
+                        setTimeout(function() {
+                            throwBombInstruction();
+                        }, 2000);
+                    }
+                }
+            }
+            checkIfWinner(enemySquares);
+        }
+
+        // De computer gooit een bom in het wilde weg ergens in jouw zee.
+        function playComputerTurn(wait = true) {
+            waitForYourTurnInstruction();
+
+            // Dit is voor de delay bij de computer turn, om het iets 'menselijker' te laten lijken.
+            let waitTime = 500;
+            if (!wait) {
+                waitTime = 0;
+            }
+
+            setTimeout(function() {
+                let target = Math.floor(Math.random() * numOfRows * numOfRows);
+                const possibleHitLocation = getPossibleHitLocation();
+                if (possibleHitLocation) {
+                    target = possibleHitLocation;
+                }
+
+                if (mySquares[target].state === "water") {
+                    mySquares[target].changeAndDraw(myContext, "miss");
+                } else if (mySquares[target].state === "ship") {
+                    mySquares[target].changeAndDraw(myContext, "hit");
+                    saveHitSquare(target);
+
+                    const sunk = checkIfSunk(mySquares, mySquares[target].shipType);
+                    if (sunk) {
+                        document.getElementById("enemysSunkenShips").innerHTML += "<li>" + mySquares[target].shipType + "</li>";
+                    }
+                } else if (mySquares[target].state === "hit" || mySquares[target].state === "miss") {
+                    playComputerTurn(false);
+                    return;
+                    // Wanneer er twee keer een bom op dezelfde plek gegooid wordt, blijft de beurt staan.
+                }
+                throwBombInstruction();
+                checkIfWinner(mySquares);
+            }, waitTime);
+        }
+
+        let hitSquare = null;
+        function saveHitSquare(location) {
+            hitSquare = location;
+        }
+
+        function getPossibleHitLocation() {
+            if (hitSquare === null) {
+                return null;
+            }
+
+            const upLocation = hitSquare - 12;
+            const downLocation = hitSquare + 12;
+            const leftLocation = hitSquare - 1;
+            const rightLocation = hitSquare + 1;
+            const rowHitArea = Math.floor(hitSquare / 12);
+            const rowLeftLocation = Math.floor(leftLocation / 12);
+            const rowRightLocation = Math.floor(rightLocation / 12);
+
+            if (upLocation >= 0 && (mySquares[upLocation].state === "water" || mySquares[upLocation].state === "ship")) return upLocation;
+            if (downLocation <= 143 && (mySquares[downLocation].state === "water" || mySquares[downLocation].state === "ship")) return downLocation;
+            if (leftLocation >= 0 && (rowHitArea === rowLeftLocation) && (mySquares[leftLocation].state === "water" || mySquares[leftLocation].state === "ship")) return leftLocation;
+            if (rightLocation <= 143 && (rowHitArea === rowRightLocation) && (mySquares[rightLocation].state === "water" || mySquares[rightLocation].state === "ship")) return rightLocation;
+
+            hitSquare = null;
+            return null;
+        }
+
+        /* De "clickEvent" parameter verwijst naar het "click event" waardoor deze functie getriggered wordt. Dit
+        "event" is een object waar allerlei informatie over de click in verstopt zit. De functie probeert de huidige boot
+        te plaatsen. Als er geen boot meer te plaatsen is, wordt de vijandige zee getekend, en worden de functies die in
+        de onclick zitten vervangen door functies die nodig zijn voor het echte spel. */
+        function gameSetupRound(clickEvent) {
+            mouseX = parseInt(getMousePosRelativeToCanvas(clickEvent).x);
+            mouseY = parseInt(getMousePosRelativeToCanvas(clickEvent).y);
+
+            // Controleer of de klik op een van de squares was.
+            for (let i = 0; i < mySquares.length; i++) {
+                if (mySquares[i].isClicked(mouseX, mouseY)) {
+                    // De draw methode van het vierkantje waarop geklikt is wordt uitgevoerd.
+                    placeBoat(i);
+                    placeShipInstruction();
+                    if (currentShipIndex === ships.length) {
+                        // Als alle schepen geplaatst zijn, teken dan de vijandige zee.
+                        drawEnemySea();
+                        placeEnemyShips();
+                        throwBombInstruction();
+                        // Verander de onclick listener op het moment dat alle schepen geplaatst zijn.
+                        document.getElementById("enemySea").onclick = playRound;
+                        document.getElementById("mySea").onclick = undefined; // Je kunt niet meer op je eigen zee klikken wanneer het spel gestart is.
+                    }
+                }
+            }
+        }
+
+        /* Dit is het echte spel, de functie wordt aangeroepen door een click event. De "clickEvent" parameter is het
+        click event, daarin zit informatie over de coordinaten waar geklikt is. */
+        function playRound(clickEvent) {
+            mouseX = parseInt(getMousePosRelativeToCanvas(clickEvent).x);
+            mouseY = parseInt(getMousePosRelativeToCanvas(clickEvent).y);
+            playHumanTurn(mouseX, mouseY);
+        }
+
+        // Geeft aan welke boot de gebruiker moet plaatsen.
+        function placeShipInstruction() {
+            if (currentShipIndex < 5) {
+                document.getElementById("instruction-text").innerHTML = "Place your " + ships[currentShipIndex].shipType +
+                    ", size: " + ships[currentShipIndex].shipSize;
+            }
+        }
+
+        // Geeft aan wanneer de gebruiker een bom moet gooien.
+        function throwBombInstruction() {
+            if (currentShipIndex >= 5) {
+                document.getElementById("instruction-text").innerHTML = "Throw a bomb";
+            }
+        }
+
+        // Geeft aan wanneer de gebruiker moet wachten op de computer.
+        function waitForYourTurnInstruction() {
+            document.getElementById("instruction-text").innerHTML = "Wait for your enemy"
+        }
+
+        // Functie om de knop om de oriëntatie te veranderen te verwijderen wanneer alle 5 de boten zijn geplaatst. Van het internet.
+        function removeOrientationButton() {
+            const elem = document.getElementById("orientation-button");
+            elem.parentNode.removeChild(elem);
+        }
+
+        // Functie om oriëntatie te veranderen.
+        function toggleOrientation() {
+            if (shipOrientation === "horizontal" && currentShipIndex < 5) {
+                shipOrientation = "vertical";
+                document.getElementById("orientation-button").innerHTML = "Change orientation to horizontal"
+            } else if (shipOrientation === "vertical" && currentShipIndex < 5) {
+                shipOrientation = "horizontal";
+                document.getElementById("orientation-button").innerHTML = "Change orientation to vertical"
+            }
+        }
+
+        document.getElementById("orientation-button").onclick = toggleOrientation;
+
+        // Functie voor de fade-out na afloop van het spel.
+        function fadeOutEffect() {
+            const fadeTarget = document.getElementById("fullscreen");
+            setTimeout(function () {
+                document.getElementById("fullscreen").style.visibility = "visible";
+                fadeTarget.style.opacity = "1.0";
+            }, 5000);
+        }
+
+        // Functie om te checken of iemand heeft gewonnen.
+        let winner;
+        function checkIfWinner(squares) {
+            if (winner) return;
+
+            let allHit = true;
+            for (let i = 0; i < squares.length; i++) {
+                if (squares[i].shipType !== undefined && squares[i].state !== "hit") {
+                    allHit = false;
+                }
+            }
+
+            if (allHit) {
+                if (squares === enemySquares) {
+                    winner = "you";
+                    confetti.start(5000);
+                    document.getElementById("title").innerHTML = "You win";
+                    document.getElementById("instruction-text").innerHTML = "It's over!";
+
+                    fadeOutEffect();
+                    setTimeout(function () {
+                        location.reload()
+                    }, 9000);
+                } else if (squares === mySquares) {
+                    winner = "enemy";
+                    document.getElementById("title").innerHTML = "Computer wins";
+                    document.getElementById("instruction-text").innerHTML = "It's over!";
+
+                    fadeOutEffect();
+                    setTimeout(function () {
+                        location.reload()
+                    }, 9000);
+                }
+            }
+        }
+
+        drawMySea();
+        placeShipInstruction();
+        document.getElementById("mySea").onclick = gameSetupRound;
+
+    </script>
+</body>
+</html>
